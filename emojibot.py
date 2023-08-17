@@ -16,7 +16,7 @@ import asyncio
 
 bot = commands.Bot(command_prefix="?", intents=discord.Intents.all())
 
-token = "MTEzOTYwNjA3ODM4NTAzMzM3Ng.GCy4BE.kiSLGd1i2jHDseAcTr5pHqszlw73hiQGgTRI8E"
+token = "Your bot token here"
 
 
 @bot.event
