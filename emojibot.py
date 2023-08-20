@@ -1,69 +1,47 @@
 import datetime as dt
 import os
 import time
-import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
 from url import SERVER_EMOJI_LIMIT
+from url import POLL_YES_EMOJI
+from url import POLL_NO_EMOJI
 from discord import Embed
 from discord import Permissions, guild, channel, utils
-from PIL import Image
-from io import BytesIO
-import requests
 import asyncio
 
 
-bot = commands.Bot(command_prefix="?", intents=discord.Intents.all())
-
 token = "Your bot token here"
 
+bot = commands.Bot(command_prefix=">", intents=discord.Intents.all())
 
-@bot.event
-async def on_ready():
-    try:
-        synced = await bot.tree.sync()
-        print("Bot is ready!")
-        print(f"Synced {len(synced)} commands")
-    except Exception as e:
-        print(e)
+if "active_polls" not in os.listdir():
+    os.mkdir("active_polls")
 
 
 # creating embed with poll
-@bot.tree.command(name="add-emoji", description="Add a new emoji to the server.")
-@app_commands.checks.has_permissions(manage_emojis=True)
-@app_commands.describe(url="What image do you want to add?", title="What should the name of this emoji be?")
-async def poll(interaction: discord.Interaction, url: str, title: str):
-    if at_server_limit(interaction.guild.id):
-        await interaction.response.send_message("Server at emoji limit.", ephemeral=True)
+@bot.tree.command(name="add-emoji", description="Creates a poll for a new emoji.")
+@app_commands.describe(url="URL of new emoji source picture", title="What we should call this new emoji.")
+async def create_poll(interaction: discord.Interaction, url: str, title: str):
+    if at_server_limit(interaction.guild_id):
+        await interaction.response.send_message("Server has reached emoji limit.", ephemeral=True)
         return
 
-    if not is_new_emoji(title, interaction.guild.id):
+    if not is_new_emoji(name=title, guild_id=interaction.guild_id):
         await interaction.response.send_message("Emoji already exists.", ephemeral=True)
         return
 
+    embed = discord.Embed(colour=discord.Color.blurple(), title=f"POLL FOR NEW EMOJI: :{title}:",
+                          description="Should we add this emoji?", timestamp=dt.datetime.now())
+    embed.set_image(url=url)
     await interaction.response.send_message("Creating poll...", ephemeral=True)
     await interaction.delete_original_response()
+    msg = await interaction.channel.send(embed=embed)
+    await msg.add_reaction(POLL_YES_EMOJI)
+    await msg.add_reaction(POLL_NO_EMOJI)
 
-    emb = discord.Embed(color=discord.Color.blurple(), title=f"POLL TO ADD NEW EMOJI: :{title}:",
-                        description="Should we add this emoji?", timestamp=dt.datetime.now())
-    emb.set_image(url=f"{url}")
-    emb.set_footer(text=f"Poll by {interaction.user.display_name}")
-
-    msg = await interaction.channel.send(embed=emb)
-    await msg.add_reaction("✅")
-    await msg.add_reaction("❌")
-
-    img = await make_image_from_url(url=url)
-
-    def check(reaction, user):
-        return user == interaction.user and reaction.emoji == "✅"
-    try:
-        await bot.wait_for('reaction_add', timeout=30, check=check)
-        new_emoji = await interaction.channel.guild.create_custom_emoji(name=title, image=img)
-        await interaction.channel.send(f"Emoji added: {str(new_emoji)}")
-    except asyncio.TimeoutError:
-        await interaction.channel.send("Emoji not added.")
+    save_poll_to_memory(interaction.guild_id, interaction.channel_id, msg.id)
 
 
 def at_server_limit(guild_id: int):
@@ -91,15 +69,21 @@ def is_new_emoji(name: str, guild_id: int):
         return False
 
 
-async def make_image_from_url(url):
-    r = requests.get(url)
-    poll_img = Image.open(BytesIO(r.content), mode='r')
-    img = poll_img.resize((128, 128))
-    b = BytesIO()
-    img.save(b, "PNG")
-    b_value = b.getvalue()
-
-    return b_value
+def save_poll_to_memory(guild_id, channel_id, message_id):
+    try:
+        os.mkdir(f"active_polls/{guild_id}")
+    except FileExistsError:
+        pass
+    finally:
+        try:
+            os.mkdir(f"active_polls/{guild_id}/{channel_id}")
+        except FileExistsError:
+            pass
+    f = open(
+        f"active_polls/{guild_id}/{channel_id}/{message_id}",
+        "w",
+    )
+    f.close()
 
 
 bot.run(token)
