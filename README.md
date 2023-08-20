@@ -1,8 +1,6 @@
 # emojibotdiscord
 Creates a Discord bot that allows a user to create a poll for a new custom emoji on their server and vote to add or refuse it.
 
-Ignore main.py, I don't know why I uploaded it. Ignore WAIT_TIMES_BETWEEN_CHECKS and POLL_UPDATE_POST_TIMES in url.py as well.
-
 To create a bot go here:
 https://discord.com/developers/applications
 
